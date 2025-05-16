@@ -237,7 +237,8 @@ app.post('/whatsapp', async (req, res) => {
         return res.sendStatus(200);
       }
     } else if (session.state === 'awaiting_consumption') {
-      const consumptionInput = req.body.Body.trim().toLowerCase();
+      const rawInput = req.body.Body || '';
+      const consumptionInput = rawInput.trim().toLowerCase();
       if (consumptionInput === 'not sure') {
         session.data.consumption = 18; // default average
         const { distanceKm, pricePerKWh } = session.data;
@@ -364,7 +365,8 @@ Type *menu* to get started and explore available features.`);
         return res.end(twiml.toString());
       }
     } else if (session.state === 'awaiting_consumption') {
-      const consumptionInput = req.body.Body.trim().toLowerCase();
+      const rawInput = req.body.Body || '';
+      const consumptionInput = rawInput.trim().toLowerCase();
       if (consumptionInput === 'not sure') {
         session.data.consumption = 18; // default average
         const { distanceKm, pricePerKWh } = session.data;
