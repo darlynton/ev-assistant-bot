@@ -134,16 +134,37 @@ async function fetchChargers(locationOrCoords, carModel) {
 
 app.post('/whatsapp', async (req, res) => {
 
+  let from, messageBody;
 
-  console.log('Incoming WhatsApp request:', req.body);
-  const from = req.body.From;
-  const messageBody = req.body.Body ? req.body.Body.trim().toLowerCase() : '';
+  // Check for Meta (Cloud API) format
+  if (req.body.object === 'whatsapp_business_account') {
+    const entry = req.body.entry?.[0];
+    const change = entry?.changes?.[0];
+    const message = change?.value?.messages?.[0];
+    from = message?.from ? `whatsapp:+${message.from}` : undefined;
+    messageBody = message?.text?.body?.trim().toLowerCase();
+  } else {
+    // Default to Twilio format
+    from = req.body.From;
+    messageBody = req.body.Body ? req.body.Body.trim().toLowerCase() : '';
+  }
 
-  const twiml = new MessagingResponse();
   if (!messageBody) {
+    const twiml = new MessagingResponse();
     twiml.message('Received your message but it was empty.');
     return res.end(twiml.toString());
   }
+
+  console.log(`Message from ${from}: "${messageBody}"`);
+
+  // const from = req.body.From;
+  // const messageBody = req.body.Body ? req.body.Body.trim().toLowerCase() : '';
+
+  const twiml = new MessagingResponse();
+  // if (!messageBody) {
+  //   twiml.message('Received your message but it was empty.');
+  //   return res.end(twiml.toString());
+  // }
 
   const session = getSession(from);
   // Check for timeout and reset if needed
