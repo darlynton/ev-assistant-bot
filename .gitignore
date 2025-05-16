@@ -1,4 +1,5 @@
 # Ignore environment and node modules
 node_modules/
 .env
-*.log
+*.log.env
+ev-chargers/ev-bot.db

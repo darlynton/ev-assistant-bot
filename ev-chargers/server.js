@@ -9,7 +9,7 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-const PORT = 9000;
+const PORT = process.env.PORT || 9000;
 
 const sessions = {};
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes timeout
