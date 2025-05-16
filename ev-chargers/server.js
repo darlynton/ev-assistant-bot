@@ -214,7 +214,7 @@ app.post('/whatsapp', async (req, res) => {
       await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), 'Great! Please reply with your car make and model (e.g., Nissan Ariya).');
       return res.sendStatus(200);
     } else if (session.state === 'waiting_for_car_model') {
-      registerUserCar(from, req.body.Body.trim());
+      registerUserCar(from, message.text.body.trim());
       await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), `Thanks! We've saved your vehicle details for future personalized results.`);
       session.state = null;
       return res.sendStatus(200);
