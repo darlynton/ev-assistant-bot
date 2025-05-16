@@ -246,7 +246,7 @@ app.post('/whatsapp', async (req, res) => {
         return res.sendStatus(200);
       }
     } else if (session.state === 'awaiting_consumption') {
-      const consumptionInput = messageBody;
+      const consumptionInput = messageBody.trim().toLowerCase();
       if (consumptionInput === 'not sure') {
         session.data.consumption = 18; // default average
         const { distanceKm, pricePerKWh } = session.data;
