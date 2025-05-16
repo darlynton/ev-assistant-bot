@@ -116,26 +116,24 @@ async function fetchChargers(locationOrCoords, carModel) {
     return 'Error fetching charger data.';
   }
 }
-
-app.post('/whatsapp', async (req, res) => {
-
     // Verification endpoint for WhatsApp webhook setup (GET request)
+    app.get('/whatsapp', (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
   
-    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'Adelory';
+    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
   
-    if (mode && token) {
-      if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-        console.log('Webhook verified!');
-        res.status(200).send(challenge);
-      } else {
-        res.sendStatus(403);
-      }
+    if (mode && token && mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('Webhook verified!');
+      res.status(200).send(challenge);
     } else {
-      res.sendStatus(400);
-    };
+      res.sendStatus(403);
+    }
+  });
+
+app.post('/whatsapp', async (req, res) => {
+
 
   console.log('Incoming WhatsApp request:', req.body);
   const from = req.body.From;
