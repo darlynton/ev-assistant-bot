@@ -214,7 +214,7 @@ app.post('/whatsapp', async (req, res) => {
       await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), 'Great! Please reply with your car make and model (e.g., Nissan Ariya).');
       return res.sendStatus(200);
     } else if (session.state === 'waiting_for_car_model') {
-      registerUserCar(from, message.text.body.trim());
+      registerUserCar(from, messageBody);
       await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), `Thanks! We've saved your vehicle details for future personalized results.`);
       session.state = null;
       return res.sendStatus(200);
@@ -246,8 +246,7 @@ app.post('/whatsapp', async (req, res) => {
         return res.sendStatus(200);
       }
     } else if (session.state === 'awaiting_consumption') {
-      const rawInput = req.body.Body || '';
-      const consumptionInput = rawInput.trim().toLowerCase();
+      const consumptionInput = messageBody;
       if (consumptionInput === 'not sure') {
         session.data.consumption = 18; // default average
         const { distanceKm, pricePerKWh } = session.data;
