@@ -135,8 +135,7 @@ app.post('/whatsapp', async (req, res) => {
       }
     } else {
       res.sendStatus(400);
-    }
-  });
+    };
 
   console.log('Incoming WhatsApp request:', req.body);
   const from = req.body.From;
