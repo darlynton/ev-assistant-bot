@@ -1,0 +1,180 @@
+[
+  {
+    "DataProvider": {
+      "WebsiteURL": "http://chargepoints.dft.gov.uk",
+      "Comments": null,
+      "DataProviderStatusType": {
+        "IsProviderEnabled": true,
+        "ID": 20,
+        "Title": "Automated Import"
+      },
+      "IsRestrictedEdit": false,
+      "IsOpenDataLicensed": true,
+      "IsApprovedImport": true,
+      "License": "Contains public sector information licensed under the Open Government Licence v2.0.",
+      "DateLastImported": "2023-12-07T08:14:38.417Z",
+      "ID": 18,
+      "Title": "UK National Charge Point Registry"
+    },
+    "OperatorInfo": {
+      "WebsiteURL": "https://www.ev-dot.com",
+      "Comments": null,
+      "PhonePrimaryContact": null,
+      "PhoneSecondaryContact": null,
+      "IsPrivateIndividual": false,
+      "AddressInfo": null,
+      "BookingURL": null,
+      "ContactEmail": null,
+      "FaultReportEmail": null,
+      "IsRestrictedEdit": false,
+      "ID": 3446,
+      "Title": "EV Dot"
+    },
+    "UsageType": {
+      "IsPayAtLocation": true,
+      "IsMembershipRequired": false,
+      "IsAccessKeyRequired": false,
+      "ID": 5,
+      "Title": "Public - Pay At Location"
+    },
+    "StatusType": null,
+    "SubmissionStatus": {
+      "IsLive": true,
+      "ID": 100,
+      "Title": "Imported and Published"
+    },
+    "UserComments": null,
+    "PercentageSimilarity": null,
+    "MediaItems": null,
+    "IsRecentlyVerified": false,
+    "DateLastVerified": "2023-05-04T08:44:00Z",
+    "ID": 253415,
+    "UUID": "3EA6A5B2-332D-431F-A6A8-8750947908E8",
+    "ParentChargePointID": null,
+    "DataProviderID": 18,
+    "DataProvidersReference": "bae46095a6e4ae11136af9f4ec77454c",
+    "OperatorID": 3446,
+    "OperatorsReference": null,
+    "UsageTypeID": 5,
+    "UsageCost": null,
+    "AddressInfo": {
+      "ID": 253799,
+      "Title": "BMM-CP-000504",
+      "AddressLine1": "Rainsford Road",
+      "AddressLine2": null,
+      "Town": "Chelmsford",
+      "StateOrProvince": null,
+      "Postcode": "CM1 2XB",
+      "CountryID": 1,
+      "Country": {
+        "ISOCode": "GB",
+        "ContinentCode": "EU",
+        "ID": 1,
+        "Title": "United Kingdom"
+      },
+      "Latitude": 51.507351,
+      "Longitude": -0.127758,
+      "ContactTelephone1": null,
+      "ContactTelephone2": null,
+      "ContactEmail": null,
+      "AccessComments": "",
+      "RelatedURL": "http://www.ev-dot.co.uk/",
+      "Distance": 0.0061754462089963725,
+      "DistanceUnit": 1
+    },
+    "Connections": [
+      {
+        "ID": 421009,
+        "ConnectionTypeID": 25,
+        "ConnectionType": {
+          "FormalName": "IEC 62196-2 Type 2",
+          "IsDiscontinued": false,
+          "IsObsolete": false,
+          "ID": 25,
+          "Title": "Type 2 (Socket Only)"
+        },
+        "Reference": "SOCKET 1",
+        "StatusTypeID": 50,
+        "StatusType": {
+          "IsOperational": true,
+          "IsUserSelectable": true,
+          "ID": 50,
+          "Title": "Operational"
+        },
+        "LevelID": 2,
+        "Level": {
+          "Comments": "Over 2 kW, usually non-domestic socket type",
+          "IsFastChargeCapable": false,
+          "ID": 2,
+          "Title": "Level 2 : Medium (Over 2kW)"
+        },
+        "Amps": 32,
+        "Voltage": 230,
+        "PowerKW": 7,
+        "CurrentTypeID": 10,
+        "CurrentType": {
+          "Description": "Alternating Current - Single Phase",
+          "ID": 10,
+          "Title": "AC (Single-Phase)"
+        },
+        "Quantity": null,
+        "Comments": null
+      },
+      {
+        "ID": 421010,
+        "ConnectionTypeID": 25,
+        "ConnectionType": {
+          "FormalName": "IEC 62196-2 Type 2",
+          "IsDiscontinued": false,
+          "IsObsolete": false,
+          "ID": 25,
+          "Title": "Type 2 (Socket Only)"
+        },
+        "Reference": "SOCKET 2",
+        "StatusTypeID": 50,
+        "StatusType": {
+          "IsOperational": true,
+          "IsUserSelectable": true,
+          "ID": 50,
+          "Title": "Operational"
+        },
+        "LevelID": 2,
+        "Level": {
+          "Comments": "Over 2 kW, usually non-domestic socket type",
+          "IsFastChargeCapable": false,
+          "ID": 2,
+          "Title": "Level 2 : Medium (Over 2kW)"
+        },
+        "Amps": 32,
+        "Voltage": 230,
+        "PowerKW": 7,
+        "CurrentTypeID": 10,
+        "CurrentType": {
+          "Description": "Alternating Current - Single Phase",
+          "ID": 10,
+          "Title": "AC (Single-Phase)"
+        },
+        "Quantity": null,
+        "Comments": null
+      }
+    ],
+    "NumberOfPoints": null,
+    "GeneralComments": null,
+    "DatePlanned": null,
+    "DateLastConfirmed": null,
+    "StatusTypeID": null,
+    "DateLastStatusUpdate": "2023-05-04T08:44:00Z",
+    "MetadataValues": [
+      {
+        "ID": 25397,
+        "MetadataFieldID": 4,
+        "ItemValue": "Contains public sector information licensed under the Open Government Licence v2.0. http://www.nationalarchives.gov.uk/doc/open-government-licence/version/2/",
+        "MetadataFieldOption": null,
+        "MetadataFieldOptionID": null
+      }
+    ],
+    "DataQualityLevel": 3,
+    "DateCreated": "2023-03-07T07:59:00Z",
+    "SubmissionStatusTypeID": 100
+  }
+]
