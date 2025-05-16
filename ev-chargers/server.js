@@ -168,6 +168,11 @@ app.post('/whatsapp', async (req, res) => {
   if (req.body.object === 'whatsapp_business_account') {
     const entry = req.body.entry?.[0];
     const change = entry?.changes?.[0];
+    // Skip non-message events (status, etc.)
+    if (!change?.value?.messages) {
+      // It's a status update or other non-message event, ignore it
+      return res.sendStatus(200);
+    }
     const message = change?.value?.messages?.[0];
     from = message?.from ? `whatsapp:+${message.from}` : null;
     messageBody = message?.text?.body?.trim().toLowerCase();
