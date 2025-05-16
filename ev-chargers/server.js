@@ -173,9 +173,9 @@ app.post('/whatsapp', async (req, res) => {
     messageBody = message?.text?.body?.trim().toLowerCase();
 
     if (!from || !messageBody) {
-      console.warn("Missing sender or message body in webhook.");
-      return res.sendStatus(200);
-    }
+        console.warn("Webhook received but missing message content. Full payload:", JSON.stringify(req.body, null, 2));
+        return res.sendStatus(200);
+      }
 
     const session = getSession(from);
     // Check for timeout and reset if needed
