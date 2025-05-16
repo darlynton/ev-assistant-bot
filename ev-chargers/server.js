@@ -118,6 +118,26 @@ async function fetchChargers(locationOrCoords, carModel) {
 }
 
 app.post('/whatsapp', async (req, res) => {
+
+    // Verification endpoint for WhatsApp webhook setup (GET request)
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+  
+    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'Adelory';
+  
+    if (mode && token) {
+      if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        console.log('Webhook verified!');
+        res.status(200).send(challenge);
+      } else {
+        res.sendStatus(403);
+      }
+    } else {
+      res.sendStatus(400);
+    }
+  });
+
   console.log('Incoming WhatsApp request:', req.body);
   const from = req.body.From;
   const messageBody = req.body.Body ? req.body.Body.trim().toLowerCase() : '';
