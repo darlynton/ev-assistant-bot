@@ -169,11 +169,11 @@ app.post('/whatsapp', async (req, res) => {
     const entry = req.body.entry?.[0];
     const change = entry?.changes?.[0];
     const message = change?.value?.messages?.[0];
-    from = message?.from ? `whatsapp:+${message.from}` : undefined;
+    from = message?.from ? `whatsapp:+${message.from}` : null;
     messageBody = message?.text?.body?.trim().toLowerCase();
 
-    if (!messageBody) {
-      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "Received your message but it was empty.");
+    if (!from || !messageBody) {
+      console.warn("Missing sender or message body in webhook.");
       return res.sendStatus(200);
     }
 
