@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const { MessagingResponse } = require('twilio').twiml;
 const fetch = require('node-fetch'); // Ensure node-fetch v2 is installed
+const axios = require('axios');
 const db = require('./db');
 
 const app = express();
@@ -37,6 +38,33 @@ function registerUserCar(phone, carModel) {
 function getUserCar(phone) {
   const row = db.prepare('SELECT car_model FROM users WHERE phone = ?').get(phone);
   return row ? row.car_model : null;
+}
+
+// Send WhatsApp reply via Meta Cloud API
+async function sendWhatsAppReplyViaMeta(phoneNumber, message) {
+  const token = process.env.META_ACCESS_TOKEN;
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+
+  const url = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+
+  try {
+    await axios.post(
+      url,
+      {
+        messaging_product: "whatsapp",
+        to: phoneNumber,
+        text: { body: message }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+  } catch (error) {
+    console.error('Error sending message via Meta API:', error.response?.data || error.message);
+  }
 }
 
 // Fetch chargers from Open Charge Map API
@@ -143,190 +171,251 @@ app.post('/whatsapp', async (req, res) => {
     const message = change?.value?.messages?.[0];
     from = message?.from ? `whatsapp:+${message.from}` : undefined;
     messageBody = message?.text?.body?.trim().toLowerCase();
-  } else {
-    // Default to Twilio format
-    from = req.body.From;
-    messageBody = req.body.Body ? req.body.Body.trim().toLowerCase() : '';
-  }
 
-  if (!messageBody) {
-    const twiml = new MessagingResponse();
-    twiml.message('Received your message but it was empty.');
-    return res.end(twiml.toString());
-  }
-
-  console.log(`Message from ${from}: "${messageBody}"`);
-
-  // const from = req.body.From;
-  // const messageBody = req.body.Body ? req.body.Body.trim().toLowerCase() : '';
-
-  const twiml = new MessagingResponse();
-  // if (!messageBody) {
-  //   twiml.message('Received your message but it was empty.');
-  //   return res.end(twiml.toString());
-  // }
-
-  const session = getSession(from);
-  // Check for timeout and reset if needed
-  if (isSessionExpired(session)) {
-    session.state = undefined;
-    session.data = {};
-    console.log(`Session for ${from} expired and reset.`);
-  }
-  // Update last active timestamp
-  session.lastActive = Date.now();
-
-  // Test code block for OpenChargeMap API
-  /*
-  if (messageBody === 'test') {
-    const dummyLat = 53.4808;  // Manchester
-    const dummyLon = -2.2426;
-
-    const apiKey = process.env.OPENCHARGEMAP_API_KEY;
-    console.log('Using API key:', apiKey);
-
-    try {
-      const chargersRes = await fetch(`https://api.openchargemap.io/v3/poi/?output=json&countrycode=GB&latitude=${dummyLat}&longitude=${dummyLon}&maxresults=3&key=${apiKey}`);
-      if (!chargersRes.ok) {
-        const errorText = await chargersRes.text();
-        console.error("Bad response from API:", chargersRes.status, errorText);
-        twiml.message('OpenChargeMap API error.');
-        return res.end(twiml.toString());
-      } else {
-        const chargers = await chargersRes.json();
-        if (!chargers.length) {
-          twiml.message('No chargers found near Manchester.');
-          return res.end(twiml.toString());
-        } else {
-          let message = '🔌 Chargers near Manchester:\n\n';
-          chargers.forEach((charger, i) => {
-            const name = charger.AddressInfo?.Title || 'Unnamed';
-            const lat = charger.AddressInfo?.Latitude;
-            const lon = charger.AddressInfo?.Longitude;
-            const types = charger.Connections?.map(c => c.ConnectionType?.Title || 'Unknown') || [];
-            const uniqueTypes = [...new Set(types)];
-            const link = lat && lon ? `https://www.google.com/maps/search/?api=1&query=${lat},${lon}` : '';
-            message += `📍 ${name}\n⚡ Types: ${uniqueTypes.join(', ')}\n➡️ ${link}\n\n`;
-          });
-          twiml.message(message.trim());
-          return res.end(twiml.toString());
-        }
-      }
-    } catch (err) {
-      console.error('API error:', err);
-      twiml.message('Something went wrong while fetching chargers.');
-      return res.end(twiml.toString());
+    if (!messageBody) {
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "Received your message but it was empty.");
+      return res.sendStatus(200);
     }
-  }
-  */
 
-  // Main flow logic
-  if (messageBody === 'charge') {
-    session.state = 'waiting_for_location';
-    twiml.message('Sure! Please share your location from WhatsApp location feature or provide a postcode or city to find nearby chargers.');
-    return res.end(twiml.toString());
-  } else if (session.state === 'waiting_for_location') {
-    const carModel = getUserCar(from);
-    const chargerResponse = await fetchChargers(messageBody, carModel);
-    twiml.message(chargerResponse);
-    session.state = null;
-
-    // Send follow-up message about personalization
-    const followUp = new MessagingResponse();
-    followUp.message('Want more personalized results based on your vehicle? Reply with `register` to save your car model.');
-    return res.end(twiml.toString() + followUp.toString());
-  } else if (messageBody === 'register') {
-    session.state = 'waiting_for_car_model';
-    twiml.message('Great! Please reply with your car make and model (e.g., Nissan Ariya).');
-    return res.end(twiml.toString());
-  } else if (session.state === 'waiting_for_car_model') {
-    registerUserCar(from, req.body.Body.trim());
-    twiml.message(`Thanks! We've saved your vehicle details for future personalized results.`);
-    session.state = null;
-    return res.end(twiml.toString());
-  } else if (messageBody === 'cost') {
-    session.state = 'awaiting_distance';
-    session.data = {};
-    twiml.message("Great! Let's calculate your trip cost.\nFirst, how many miles is your trip?");
-    return res.end(twiml.toString());
-  } else if (session.state === 'awaiting_distance') {
-    const distance = parseFloat(messageBody);
-    if (isNaN(distance)) {
-      twiml.message("That doesn't look like a number. Please enter the trip distance in kilometers (e.g., 120).");
-      return res.end(twiml.toString());
-    } else {
-      session.data.distanceKm = distance;
-      session.state = 'awaiting_price';
-      twiml.message("Thanks! Now, what's your electricity cost per kWh in pounds? (e.g., 0.34)");
-      return res.end(twiml.toString());
-    }
-  } else if (session.state === 'awaiting_price') {
-    const price = parseFloat(messageBody);
-    if (isNaN(price)) {
-      twiml.message("Hmm, that doesn't look right. Please enter the cost per kWh in pounds (e.g., 0.34).");
-      return res.end(twiml.toString());
-    } else {
-      session.data.pricePerKWh = price;
-      session.state = 'awaiting_consumption';
-      twiml.message("Got it. Lastly, what's your vehicle's energy consumption per 100 km? (e.g., 18)\nReply “Not sure” and I’ll use an average value of 18 kWh/100 km.");
-      return res.end(twiml.toString());
-    }
-  } else if (session.state === 'awaiting_consumption') {
-    const consumptionInput = req.body.Body.trim().toLowerCase();
-
-    if (consumptionInput === 'not sure') {
-      session.data.consumption = 18; // default average
-      const { distanceKm, pricePerKWh } = session.data;
-      const distanceKmConverted = distanceKm * 1.60934;
-      const energyNeeded = (distanceKmConverted / 100) * session.data.consumption;
-      const estimatedCost = energyNeeded * pricePerKWh;
-
-      twiml.message(`🔋 Estimated trip cost:\n\n• Distance: ${distanceKmConverted.toFixed(2)} km (${(distanceKmConverted / 1.60934).toFixed(2)} miles)\n• Energy needed: ${energyNeeded.toFixed(2)} kWh\n• Estimated cost: £${estimatedCost.toFixed(2)}\n\nIf you'd like to provide a more accurate consumption later, just let me know!`);
-      session.state = null;
+    const session = getSession(from);
+    // Check for timeout and reset if needed
+    if (isSessionExpired(session)) {
+      session.state = undefined;
       session.data = {};
-      return res.end(twiml.toString());
-    } else {
-      const consumption = parseFloat(consumptionInput);
-      if (isNaN(consumption)) {
-        twiml.message("That doesn't seem right. Please enter the consumption in kWh per 100 km (e.g., 18), or reply 'Not sure' to use the average value.");
-        return res.end(twiml.toString());
+      console.log(`Session for ${from} expired and reset.`);
+    }
+    // Update last active timestamp
+    session.lastActive = Date.now();
+
+    // Main flow logic
+    if (messageBody === 'charge') {
+      session.state = 'waiting_for_location';
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), 'Sure! Please share your location from WhatsApp location feature or provide a postcode or city to find nearby chargers.');
+      return res.sendStatus(200);
+    } else if (session.state === 'waiting_for_location') {
+      const carModel = getUserCar(from);
+      const chargerResponse = await fetchChargers(messageBody, carModel);
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), chargerResponse);
+      session.state = null;
+      // Send follow-up message about personalization
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), 'Want more personalized results based on your vehicle? Reply with `register` to save your car model.');
+      return res.sendStatus(200);
+    } else if (messageBody === 'register') {
+      session.state = 'waiting_for_car_model';
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), 'Great! Please reply with your car make and model (e.g., Nissan Ariya).');
+      return res.sendStatus(200);
+    } else if (session.state === 'waiting_for_car_model') {
+      registerUserCar(from, req.body.Body.trim());
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), `Thanks! We've saved your vehicle details for future personalized results.`);
+      session.state = null;
+      return res.sendStatus(200);
+    } else if (messageBody === 'cost') {
+      session.state = 'awaiting_distance';
+      session.data = {};
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "Great! Let's calculate your trip cost.\nFirst, how many miles is your trip?");
+      return res.sendStatus(200);
+    } else if (session.state === 'awaiting_distance') {
+      const distance = parseFloat(messageBody);
+      if (isNaN(distance)) {
+        await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "That doesn't look like a number. Please enter the trip distance in kilometers (e.g., 120).");
+        return res.sendStatus(200);
       } else {
-        session.data.consumption = consumption;
+        session.data.distanceKm = distance;
+        session.state = 'awaiting_price';
+        await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "Thanks! Now, what's your electricity cost per kWh in pounds? (e.g., 0.34)");
+        return res.sendStatus(200);
+      }
+    } else if (session.state === 'awaiting_price') {
+      const price = parseFloat(messageBody);
+      if (isNaN(price)) {
+        await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "Hmm, that doesn't look right. Please enter the cost per kWh in pounds (e.g., 0.34).");
+        return res.sendStatus(200);
+      } else {
+        session.data.pricePerKWh = price;
+        session.state = 'awaiting_consumption';
+        await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "Got it. Lastly, what's your vehicle's energy consumption per 100 km? (e.g., 18)\nReply “Not sure” and I’ll use an average value of 18 kWh/100 km.");
+        return res.sendStatus(200);
+      }
+    } else if (session.state === 'awaiting_consumption') {
+      const consumptionInput = req.body.Body.trim().toLowerCase();
+      if (consumptionInput === 'not sure') {
+        session.data.consumption = 18; // default average
         const { distanceKm, pricePerKWh } = session.data;
         const distanceKmConverted = distanceKm * 1.60934;
-        const energyNeeded = (distanceKmConverted / 100) * consumption;
+        const energyNeeded = (distanceKmConverted / 100) * session.data.consumption;
         const estimatedCost = energyNeeded * pricePerKWh;
-
-        twiml.message(`🔋 Estimated trip cost:\n\n• Distance: ${distanceKmConverted.toFixed(2)} km (${(distanceKmConverted / 1.60934).toFixed(2)} miles)\n• Energy needed: ${energyNeeded.toFixed(2)} kWh\n• Estimated cost: £${estimatedCost.toFixed(2)}`);
+        await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""),
+          `🔋 Estimated trip cost:\n\n• Distance: ${distanceKmConverted.toFixed(2)} km (${(distanceKmConverted / 1.60934).toFixed(2)} miles)\n• Energy needed: ${energyNeeded.toFixed(2)} kWh\n• Estimated cost: £${estimatedCost.toFixed(2)}\n\nIf you'd like to provide a more accurate consumption later, just let me know!`
+        );
         session.state = null;
         session.data = {};
-        return res.end(twiml.toString());
+        return res.sendStatus(200);
+      } else {
+        const consumption = parseFloat(consumptionInput);
+        if (isNaN(consumption)) {
+          await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "That doesn't seem right. Please enter the consumption in kWh per 100 km (e.g., 18), or reply 'Not sure' to use the average value.");
+          return res.sendStatus(200);
+        } else {
+          session.data.consumption = consumption;
+          const { distanceKm, pricePerKWh } = session.data;
+          const distanceKmConverted = distanceKm * 1.60934;
+          const energyNeeded = (distanceKmConverted / 100) * consumption;
+          const estimatedCost = energyNeeded * pricePerKWh;
+          await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""),
+            `🔋 Estimated trip cost:\n\n• Distance: ${distanceKmConverted.toFixed(2)} km (${(distanceKmConverted / 1.60934).toFixed(2)} miles)\n• Energy needed: ${energyNeeded.toFixed(2)} kWh\n• Estimated cost: £${estimatedCost.toFixed(2)}`
+          );
+          session.state = null;
+          session.data = {};
+          return res.sendStatus(200);
+        }
       }
     }
-  }
-  // New menu option
-  if (messageBody === 'menu') {
-    twiml.message(`EV Assistant Menu:
+    // New menu option
+    if (messageBody === 'menu') {
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), `EV Assistant Menu:
 
 1️⃣ Type *charge* to find EV chargers near you
 2️⃣ Type *cost* to estimate your trip cost
 
 You can also type *register* to personalize your experience.`);
-    return res.end(twiml.toString());
-  }
-  else if (!session.state && !session.welcomed && messageBody !== 'menu') {
-    session.welcomed = true;
-    twiml.message(`👋 Welcome to EV Assistant!
+      return res.sendStatus(200);
+    }
+    else if (!session.state && !session.welcomed && messageBody !== 'menu') {
+      session.welcomed = true;
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), `👋 Welcome to EV Assistant!
 
 Type *menu* to get started and explore available features.`);
-    return res.end(twiml.toString());
-  }
-  else {
-    twiml.message("Sorry, I didn't understand that. Please type *menu* to see available options.");
-  }
+      return res.sendStatus(200);
+    }
+    else {
+      await sendWhatsAppReplyViaMeta(from.replace("whatsapp:", ""), "Sorry, I didn't understand that. Please type *menu* to see available options.");
+      return res.sendStatus(200);
+    }
+  } else {
+    // Default to Twilio format
+    from = req.body.From;
+    messageBody = req.body.Body ? req.body.Body.trim().toLowerCase() : '';
 
-  res.writeHead(200, { 'Content-Type': 'text/xml' });
-  res.end(twiml.toString());
+    if (!messageBody) {
+      const twiml = new MessagingResponse();
+      twiml.message('Received your message but it was empty.');
+      return res.end(twiml.toString());
+    }
+
+    console.log(`Message from ${from}: "${messageBody}"`);
+
+    const twiml = new MessagingResponse();
+    const session = getSession(from);
+    if (isSessionExpired(session)) {
+      session.state = undefined;
+      session.data = {};
+      console.log(`Session for ${from} expired and reset.`);
+    }
+    session.lastActive = Date.now();
+
+    // Main flow logic for Twilio
+    if (messageBody === 'charge') {
+      session.state = 'waiting_for_location';
+      twiml.message('Sure! Please share your location from WhatsApp location feature or provide a postcode or city to find nearby chargers.');
+      return res.end(twiml.toString());
+    } else if (session.state === 'waiting_for_location') {
+      const carModel = getUserCar(from);
+      const chargerResponse = await fetchChargers(messageBody, carModel);
+      twiml.message(chargerResponse);
+      session.state = null;
+      // Send follow-up message about personalization
+      const followUp = new MessagingResponse();
+      followUp.message('Want more personalized results based on your vehicle? Reply with `register` to save your car model.');
+      return res.end(twiml.toString() + followUp.toString());
+    } else if (messageBody === 'register') {
+      session.state = 'waiting_for_car_model';
+      twiml.message('Great! Please reply with your car make and model (e.g., Nissan Ariya).');
+      return res.end(twiml.toString());
+    } else if (session.state === 'waiting_for_car_model') {
+      registerUserCar(from, req.body.Body.trim());
+      twiml.message(`Thanks! We've saved your vehicle details for future personalized results.`);
+      session.state = null;
+      return res.end(twiml.toString());
+    } else if (messageBody === 'cost') {
+      session.state = 'awaiting_distance';
+      session.data = {};
+      twiml.message("Great! Let's calculate your trip cost.\nFirst, how many miles is your trip?");
+      return res.end(twiml.toString());
+    } else if (session.state === 'awaiting_distance') {
+      const distance = parseFloat(messageBody);
+      if (isNaN(distance)) {
+        twiml.message("That doesn't look like a number. Please enter the trip distance in kilometers (e.g., 120).");
+        return res.end(twiml.toString());
+      } else {
+        session.data.distanceKm = distance;
+        session.state = 'awaiting_price';
+        twiml.message("Thanks! Now, what's your electricity cost per kWh in pounds? (e.g., 0.34)");
+        return res.end(twiml.toString());
+      }
+    } else if (session.state === 'awaiting_price') {
+      const price = parseFloat(messageBody);
+      if (isNaN(price)) {
+        twiml.message("Hmm, that doesn't look right. Please enter the cost per kWh in pounds (e.g., 0.34).");
+        return res.end(twiml.toString());
+      } else {
+        session.data.pricePerKWh = price;
+        session.state = 'awaiting_consumption';
+        twiml.message("Got it. Lastly, what's your vehicle's energy consumption per 100 km? (e.g., 18)\nReply “Not sure” and I’ll use an average value of 18 kWh/100 km.");
+        return res.end(twiml.toString());
+      }
+    } else if (session.state === 'awaiting_consumption') {
+      const consumptionInput = req.body.Body.trim().toLowerCase();
+      if (consumptionInput === 'not sure') {
+        session.data.consumption = 18; // default average
+        const { distanceKm, pricePerKWh } = session.data;
+        const distanceKmConverted = distanceKm * 1.60934;
+        const energyNeeded = (distanceKmConverted / 100) * session.data.consumption;
+        const estimatedCost = energyNeeded * pricePerKWh;
+        twiml.message(`🔋 Estimated trip cost:\n\n• Distance: ${distanceKmConverted.toFixed(2)} km (${(distanceKmConverted / 1.60934).toFixed(2)} miles)\n• Energy needed: ${energyNeeded.toFixed(2)} kWh\n• Estimated cost: £${estimatedCost.toFixed(2)}\n\nIf you'd like to provide a more accurate consumption later, just let me know!`);
+        session.state = null;
+        session.data = {};
+        return res.end(twiml.toString());
+      } else {
+        const consumption = parseFloat(consumptionInput);
+        if (isNaN(consumption)) {
+          twiml.message("That doesn't seem right. Please enter the consumption in kWh per 100 km (e.g., 18), or reply 'Not sure' to use the average value.");
+          return res.end(twiml.toString());
+        } else {
+          session.data.consumption = consumption;
+          const { distanceKm, pricePerKWh } = session.data;
+          const distanceKmConverted = distanceKm * 1.60934;
+          const energyNeeded = (distanceKmConverted / 100) * consumption;
+          const estimatedCost = energyNeeded * pricePerKWh;
+          twiml.message(`🔋 Estimated trip cost:\n\n• Distance: ${distanceKmConverted.toFixed(2)} km (${(distanceKmConverted / 1.60934).toFixed(2)} miles)\n• Energy needed: ${energyNeeded.toFixed(2)} kWh\n• Estimated cost: £${estimatedCost.toFixed(2)}`);
+          session.state = null;
+          session.data = {};
+          return res.end(twiml.toString());
+        }
+      }
+    }
+    // New menu option
+    if (messageBody === 'menu') {
+      twiml.message(`EV Assistant Menu:
+
+1️⃣ Type *charge* to find EV chargers near you
+2️⃣ Type *cost* to estimate your trip cost
+
+You can also type *register* to personalize your experience.`);
+      return res.end(twiml.toString());
+    }
+    else if (!session.state && !session.welcomed && messageBody !== 'menu') {
+      session.welcomed = true;
+      twiml.message(`👋 Welcome to EV Assistant!
+
+Type *menu* to get started and explore available features.`);
+      return res.end(twiml.toString());
+    }
+    else {
+      twiml.message("Sorry, I didn't understand that. Please type *menu* to see available options.");
+    }
+    res.writeHead(200, { 'Content-Type': 'text/xml' });
+    res.end(twiml.toString());
+  }
 });
 
 
