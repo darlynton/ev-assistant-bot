@@ -175,7 +175,11 @@ app.post('/whatsapp', async (req, res) => {
     }
     const message = change?.value?.messages?.[0];
     from = message?.from ? `whatsapp:+${message.from}` : null;
-    messageBody = message?.text?.body?.trim().toLowerCase();
+    if (message?.text?.body) {
+      messageBody = message.text.body.trim().toLowerCase();
+    } else if (message?.location) {
+      messageBody = `${message.location.latitude},${message.location.longitude}`;
+    }
 
     if (!from || !messageBody) {
         console.warn("Webhook received but missing message content. Full payload:", JSON.stringify(req.body, null, 2));
