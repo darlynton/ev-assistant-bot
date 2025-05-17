@@ -3,3 +3,7 @@ node_modules/
 .env
 *.log.env
 ev-chargers/ev-bot.db
+ev-chargers/bkup_server.js
+ev-chargers/bckup_googl_server.js
+ev-chargers/test-insert.js
+ev-chargers/view-users.js
